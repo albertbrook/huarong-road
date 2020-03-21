@@ -6,20 +6,20 @@ class Functions {
     private static Functions functions;
 
     private Paint paint;
-    private Plate plate;
     private Map<String, Point> locations;
-    private Map<String, Point> blocks;
+    private Map<String, Point> sizes;
     private String[][] blockList;
 
     private boolean move = false;
-    private Point mouseLocation;
-    private Point blockLocation = new Point();
-    private String block;
+    private Point mouse;
+    private Point origin = new Point();
+    private Point location;
+    private Point size;
     private boolean moveLeft;
     private boolean moveRight;
     private boolean moveUp;
     private boolean moveDown;
-    private Point blockPoint;
+    private int unit;
 
     static Functions getFunctions() {
         if (functions == null) {
@@ -30,11 +30,11 @@ class Functions {
 
     private Functions() {
         paint = Paint.getPaint();
-        plate = Plate.getPlate();
+        locations = Plate.getPlate().getLocations();
+        sizes = Plate.getPlate().getSizes();
+        blockList = Plate.getPlate().getBlockList();
 
-        locations = plate.getLocations();
-        blocks = plate.getBlocks();
-        blockList = plate.getBlockList();
+        unit = Settings.BLOCK_SIZE + Settings.SPACE_SIZE;
     }
 
     void event() {
@@ -44,13 +44,16 @@ class Functions {
                 Point downPoint = new Point(e.getX(), e.getY());
                 for (String[] keys : blockList) {
                     for (String key : keys) {
-                        if (plate.getBlock(key).contains(downPoint)) {
+                        if (paint.drawBlock(key).contains(downPoint)) {
                             move = true;
-                            mouseLocation = downPoint;
-                            blockLocation.setLocation(locations.get(key).getLocation());
-                            block = key;
+                            mouse = downPoint;
+                            origin.setLocation(locations.get(key).getLocation());
+                            location = locations.get(key);
+                            size = sizes.get(key);
                             judgeMove();
                             System.out.println();
+                            System.out.println(origin.x);
+                            System.out.println(origin.y);
                             System.out.println(moveLeft);
                             System.out.println(moveRight);
                             System.out.println(moveUp);
@@ -64,8 +67,7 @@ class Functions {
             @Override
             public void mouseReleased(MouseEvent e) {
                 move = false;
-                locations.get(block).x = blockLocation.x;
-                locations.get(block).y = blockLocation.y;
+                location.setLocation(origin.getLocation());
                 paint.repaint();
             }
         };
@@ -73,20 +75,21 @@ class Functions {
             @Override
             public void mouseDragged(MouseEvent e) {
                 if (move) {
-                    blockPoint = locations.get(block);
-                    int dx = e.getX() - mouseLocation.x;
-                    int dy = e.getY() - mouseLocation.y;
+                    int dx = e.getX() - mouse.x;
+                    int dy = e.getY() - mouse.y;
                     if (dx < 0 && moveLeft || dx > 0 && moveRight) {
-                        blockPoint.x = blockLocation.x + dx;
-                        move(e);
+                        location.x = origin.x + dx;
+                        moveUp = moveDown = false;
+                        moveNext(e);
                     } else {
-                        blockPoint.x = blockLocation.x;
+                        location.x = origin.x;
                     }
                     if (dy < 0 && moveUp || dy > 0 && moveDown) {
-                        blockPoint.y = blockLocation.y + dy;
-                        move(e);
+                        location.y = origin.y + dy;
+                        moveLeft = moveRight = false;
+                        moveNext(e);
                     } else {
-                        blockPoint.y = blockLocation.y;
+                        location.y = origin.y;
                     }
                     paint.repaint();
                 }
@@ -97,50 +100,45 @@ class Functions {
     }
 
     private void judgeMove() {
-        boolean[][] b = new boolean[4][4];
-        int unit = Settings.BLOCK_SIZE + Settings.SPACE_SIZE;
-        for (int i = 0; i < blocks.get(block).x; i++) {
-            for (int j = 0; j < blocks.get(block).y; j++) {
-                b[i * blocks.get(block).x + j] = judgePointMove(blockLocation.x + unit * i, blockLocation.y + unit * j);
+        boolean[][] booleans = new boolean[4][4];
+        for (int i = 0; i < size.x; i++) {
+            for (int j = 0; j < size.y; j++) {
+                booleans[i * size.x + j] = judgePoint(origin.x + unit * i, origin.y + unit * j);
             }
         }
-        int[] b2 = new int[4];
+        int[] counts = new int[4];
         for (int i = 0; i < 4; i++) {
             int n = 0;
             for (int j = 0; j < 4; j++) {
-                if (b[j][i]) {
+                if (booleans[j][i]) {
                     n += 1;
                 }
             }
-            b2[i] = n;
-            System.out.println(b2[i]);
+            counts[i] = n;
         }
-        moveLeft = b2[0] == blocks.get(block).y;
-        moveRight = b2[1] == blocks.get(block).y;
-        moveUp = b2[2] == blocks.get(block).x;
-        moveDown = b2[3] == blocks.get(block).x;
+        moveLeft = counts[0] == size.y;
+        moveRight = counts[1] == size.y;
+        moveUp = counts[2] == size.x;
+        moveDown = counts[3] == size.x;
     }
 
-    private boolean[] judgePointMove(int x, int y) {
-        int unit = Settings.BLOCK_SIZE + Settings.SPACE_SIZE;
-        int leftX = x - unit + Settings.ROUND_SIZE;
-        int rightX = x + unit + Settings.ROUND_SIZE;
-        int upY = y - unit + Settings.ROUND_SIZE;
-        int downY = y + unit + Settings.ROUND_SIZE;
-        boolean left = isCanMove(leftX, y);
-        boolean right = isCanMove(rightX, y);
-        boolean up = isCanMove(x, upY);
-        boolean down = isCanMove(x, downY);
+    private boolean[] judgePoint(int x, int y) {
+        x += Settings.BLOCK_SIZE >> 1;
+        y += Settings.BLOCK_SIZE >> 1;
+        boolean left = isMove(x - unit, y);
+        boolean right = isMove(x + unit, y);
+        boolean up = isMove(x, y - unit);
+        boolean down = isMove(x, y + unit);
         return new boolean[] {left, right, up, down};
     }
 
-    private boolean isCanMove(int x, int y) {
+    private boolean isMove(int x, int y) {
         if (x < 0 || x > paint.getWidth() || y < 0 || y > paint.getHeight()) {
             return false;
         }
         for (String[] keys : blockList) {
             for (String key : keys) {
-                if (plate.getBlock(key).contains(x, y)) {
+                if (paint.drawBlock(key).contains(x, y)) {
                     return false;
                 }
             }
@@ -148,17 +146,13 @@ class Functions {
         return true;
     }
 
-    private void move(MouseEvent e) {
-        blockPoint = locations.get(block);
-        int unit = Settings.BLOCK_SIZE + Settings.SPACE_SIZE;
-        int x = Math.round((blockPoint.x - Settings.SPACE_SIZE) / (float) unit) * unit + Settings.SPACE_SIZE;
-        int y = Math.round((blockPoint.y - Settings.SPACE_SIZE) / (float) unit) * unit + Settings.SPACE_SIZE;
-        if (x != blockLocation.x || y != blockLocation.y) {
-            mouseLocation.setLocation(e.getX(), e.getY());
-            blockLocation.x = x;
-            blockLocation.y = y;
-            locations.get(block).x = blockLocation.x;
-            locations.get(block).y = blockLocation.y;
+    private void moveNext(MouseEvent e) {
+        int x = Math.round((location.x - Settings.SPACE_SIZE) / (float) unit) * unit + Settings.SPACE_SIZE;
+        int y = Math.round((location.y - Settings.SPACE_SIZE) / (float) unit) * unit + Settings.SPACE_SIZE;
+        if (x != origin.x || y != origin.y) {
+            mouse.setLocation(e.getX(), e.getY());
+            origin.setLocation(x, y);
+            location.setLocation(x, y);
             judgeMove();
         }
     }
