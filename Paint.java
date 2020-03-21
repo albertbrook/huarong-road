@@ -1,11 +1,17 @@
 import java.awt.*;
+import java.awt.geom.RoundRectangle2D;
 import java.awt.image.BufferedImage;
+import java.util.Map;
 
 class Paint extends Canvas {
     private static Paint paint;
 
-    private Plate plate;
+    private Map<String, Point> locations;
+    private Map<String, Point> sizes;
     private String[][] blockList;
+
+    private RoundRectangle2D blockStyle = new RoundRectangle2D.Double();
+
 
     static Paint getPaint() {
         if (paint == null) {
@@ -15,8 +21,9 @@ class Paint extends Canvas {
     }
 
     private Paint() {
-        plate = Plate.getPlate();
-        blockList = plate.getBlockList();
+        locations = Plate.getPlate().getLocations();
+        sizes = Plate.getPlate().getSizes();
+        blockList = Plate.getPlate().getBlockList();
 
         setBackground(Color.BLACK);
     }
@@ -28,11 +35,20 @@ class Paint extends Canvas {
         for (int i = 0; i < blockList.length; i++) {
             g2.setColor(Settings.BLOCK_COLOR[i]);
             for (String key : blockList[i]) {
-                g2.setClip(plate.getBlock(key));
+                g2.setClip(drawBlock(key));
                 g2.fillRect(0, 0, image.getWidth(), image.getHeight());
             }
         }
         g.drawImage(image, 0, 0, this);
+    }
+
+    RoundRectangle2D drawBlock(String key) {
+        Point location = locations.get(key);
+        Point size = sizes.get(key);
+        int width = size.x * Settings.BLOCK_SIZE + (size.x - 1) * Settings.SPACE_SIZE;
+        int height = size.y * Settings.BLOCK_SIZE + (size.y - 1) * Settings.SPACE_SIZE;
+        this.blockStyle.setRoundRect(location.x, location.y, width, height, Settings.ROUND_SIZE, Settings.ROUND_SIZE);
+        return this.blockStyle;
     }
 
     @Override
