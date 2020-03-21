@@ -2,7 +2,7 @@ import javax.swing.*;
 
 public class Main extends JFrame {
     private Main() {
-        setTitle("华容道：横刀立马 - AlbertBrook");
+        setTitle("Huarong Road - AlbertBrook");
         setResizable(false);
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         setSize(Settings.SCREEN_SIZE);
