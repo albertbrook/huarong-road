@@ -44,10 +44,10 @@ class Functions {
                 Point downPoint = new Point(e.getX(), e.getY());
                 for (String[] keys : blockList) {
                     for (String key : keys) {
-                        if (paint.drawBlock(key).contains(downPoint)) {
+                        if (paint.drawBlock(key).contains(downPoint) && !move) {
                             move = true;
                             mouse = downPoint;
-                            origin.setLocation(locations.get(key).getLocation());
+                            origin.setLocation(locations.get(key));
                             location = locations.get(key);
                             size = sizes.get(key);
                             judgeMove();
@@ -66,9 +66,11 @@ class Functions {
 
             @Override
             public void mouseReleased(MouseEvent e) {
-                move = false;
-                location.setLocation(origin.getLocation());
-                paint.repaint();
+                if (move) {
+                    move = false;
+                    location.setLocation(origin);
+                    paint.repaint();
+                }
             }
         };
         MouseMotionListener mouseMotionListener = new MouseAdapter() {
@@ -77,19 +79,19 @@ class Functions {
                 if (move) {
                     int dx = e.getX() - mouse.x;
                     int dy = e.getY() - mouse.y;
-                    if (dx < 0 && moveLeft || dx > 0 && moveRight) {
+                    if ((dx < 0 && moveLeft || dx > 0 && moveRight) && location.y == origin.y) {
                         location.x = origin.x + dx;
-                        moveUp = moveDown = false;
                         moveNext(e);
                     } else {
                         location.x = origin.x;
+                        mouse.x = e.getX();
                     }
-                    if (dy < 0 && moveUp || dy > 0 && moveDown) {
+                    if ((dy < 0 && moveUp || dy > 0 && moveDown) && location.x == origin.x) {
                         location.y = origin.y + dy;
-                        moveLeft = moveRight = false;
                         moveNext(e);
                     } else {
                         location.y = origin.y;
+                        mouse.y = e.getY();
                     }
                     paint.repaint();
                 }
@@ -100,6 +102,8 @@ class Functions {
     }
 
     private void judgeMove() {
+        Point recover = new Point(location);
+        location.setLocation(origin);
         boolean[][] booleans = new boolean[4][4];
         for (int i = 0; i < size.x; i++) {
             for (int j = 0; j < size.y; j++) {
@@ -120,6 +124,7 @@ class Functions {
         moveRight = counts[1] == size.y;
         moveUp = counts[2] == size.x;
         moveDown = counts[3] == size.x;
+        location.setLocation(recover);
     }
 
     private boolean[] judgePoint(int x, int y) {
@@ -150,9 +155,8 @@ class Functions {
         int x = Math.round((location.x - Settings.SPACE_SIZE) / (float) unit) * unit + Settings.SPACE_SIZE;
         int y = Math.round((location.y - Settings.SPACE_SIZE) / (float) unit) * unit + Settings.SPACE_SIZE;
         if (x != origin.x || y != origin.y) {
-            mouse.setLocation(e.getX(), e.getY());
+            mouse.setLocation(e.getX() + x - location.x, e.getY() + y - location.y);
             origin.setLocation(x, y);
-            location.setLocation(x, y);
             judgeMove();
         }
     }
